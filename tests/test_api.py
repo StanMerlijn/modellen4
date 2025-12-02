@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import os
+
 import pytest
 
 from app import create_app
@@ -25,11 +27,9 @@ def client(app):
 
 
 def login(client):
-    return client.post(
-        "/login",
-        data={"username": "incident-operator", "password": "secure-demo"},
-        follow_redirects=False,
-    )
+    username = os.getenv("APP_USERNAME", "incident-operator")
+    password = os.getenv("APP_PASSWORD", "secure-demo")
+    return client.post("/login", data={"username": username, "password": password}, follow_redirects=False)
 
  
 def test_login_required(client):
@@ -62,6 +62,34 @@ def test_incident_lifecycle(client):
 
     refreshed = client.get("/api/incidents")
     assert len(refreshed.get_json()["incidents"]) == initial_count + 1
+
+
+def test_analyze_incident_creates_record(client):
+    login(client)
+    baseline = client.get("/api/incidents")
+    start_count = len(baseline.get_json()["incidents"])
+
+    payload = {
+        "sensor": {
+            "id": "synthetic-traffic",
+            "type": "Traffic",
+            "location": "Test location",
+            "status": "alert",
+            "payload": {
+                "vehicle_count": 1200,
+                "avg_speed_kmh": 6,
+            },
+        }
+    }
+
+    response = client.post("/api/incidents/analyze", json=payload)
+    assert response.status_code == 201
+    data = response.get_json()
+    assert data["analysis"]["suggested_severity"] in {"high", "critical"}
+    assert data["incident"]["category"] == "Traffic"
+
+    refreshed = client.get("/api/incidents")
+    assert len(refreshed.get_json()["incidents"]) == start_count + 1
 
 
 def test_github_oauth_success(client, monkeypatch):

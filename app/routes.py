@@ -185,6 +185,22 @@ def incidents_collection():
     return jsonify({"incidents": [serialize_incident(item) for item in incidents]})
 
 
+@api_blueprint.route("/incidents/analyze", methods=["POST"])
+@login_required
+def incident_analysis():
+    payload = request.get_json(silent=True) or {}
+    sensor_payload = payload.get("sensor")
+    if not isinstance(sensor_payload, dict):
+        abort(400, "Missing sensor payload for analysis")
+
+    analysis = classify_sensor_event(sensor_payload)
+    recommendation = build_incident_recommendation(sensor_payload)
+    recommendation.setdefault("location", sensor_payload.get("location", "Unknown"))
+    incident = add_incident(recommendation)
+
+    return jsonify({"analysis": analysis, "incident": serialize_incident(incident)}), 201
+
+
 @api_blueprint.route("/incidents/<int:incident_id>", methods=["GET", "PATCH"])
 @login_required
 def incident_detail(incident_id: int):

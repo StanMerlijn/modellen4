@@ -1,3 +1,5 @@
+    let autoInjectionHandle = null;
+
 document.addEventListener('DOMContentLoaded', () => {
     const tableRoot = document.querySelector('#incident-table tbody');
     if (!tableRoot) {
@@ -213,16 +215,92 @@ document.addEventListener('DOMContentLoaded', () => {
         renderSensors(data.sensors);
     }
 
-    async function simulateIncident() {
-        const notice = document.getElementById('ai-rationale');
-        notice.textContent = 'Running simulation...';
-        const data = await fetchJson('/api/simulate', { method: 'POST' });
-        if (data.created_incident) {
-            notice.textContent = `Simulation created incident ${data.created_incident.id}.`;
-        } else {
-            notice.textContent = 'Simulation completed without creating an incident.';
+    function randomSensorEvent() {
+        const templates = [
+            {
+                type: 'Traffic',
+                location: 'Ring Road',
+                buildPayload: () => {
+                    const vehicleCount = Math.floor(500 + Math.random() * 900);
+                    const avgSpeed = Number.parseFloat((5 + Math.random() * 35).toFixed(1));
+                    const status = avgSpeed < 10 || vehicleCount > 1100 ? 'alert' : 'warning';
+                    return {
+                        payload: {
+                            vehicle_count: vehicleCount,
+                            avg_speed_kmh: avgSpeed,
+                        },
+                        status,
+                    };
+                },
+            },
+            {
+                type: 'Public Safety',
+                location: 'City Square',
+                buildPayload: () => {
+                    const anomaly = Number.parseFloat((Math.random()).toFixed(2));
+                    const status = anomaly > 0.7 ? 'alert' : anomaly > 0.4 ? 'warning' : 'healthy';
+                    return {
+                        payload: { anomaly_score: anomaly },
+                        status,
+                    };
+                },
+            },
+            {
+                type: 'Utilities',
+                location: 'Water Treatment Plant',
+                buildPayload: () => {
+                    const chlorine = Number.parseFloat((0.5 + Math.random() * 1.5).toFixed(2));
+                    const ph = Number.parseFloat((6.5 + Math.random() * 1.5).toFixed(2));
+                    const status = chlorine > 1.6 || chlorine < 0.7 ? 'warning' : 'healthy';
+                    return {
+                        payload: {
+                            chlorine_ppm: chlorine,
+                            ph,
+                        },
+                        status,
+                    };
+                },
+            },
+        ];
+
+        const sample = templates[Math.floor(Math.random() * templates.length)];
+        const { payload, status } = sample.buildPayload();
+        return {
+            id: `synthetic-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+            type: sample.type,
+            location: sample.location,
+            status,
+            payload,
+        };
+    }
+
+    function queueAutoInjection(intervalMs = 45000) {
+        if (autoInjectionHandle) {
+            clearInterval(autoInjectionHandle);
         }
-        await refreshDashboard();
+        autoInjectionHandle = setInterval(() => {
+            simulateIncident(true).catch((error) => console.error('Auto incident injection failed', error));
+        }, intervalMs);
+    }
+
+    async function simulateIncident(triggeredAutomatically = false) {
+        const notice = document.getElementById('ai-rationale');
+        const sensorEvent = randomSensorEvent();
+        const prefix = triggeredAutomatically ? 'Auto-analysis' : 'Simulation';
+        notice.textContent = `${prefix}: Dispatching synthetic ${sensorEvent.type} event for analysis...`;
+        try {
+            const data = await fetchJson('/api/incidents/analyze', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ sensor: sensorEvent }),
+            });
+            const { analysis, incident } = data;
+            notice.textContent = `${prefix}: ${sensorEvent.id} classified ${analysis.suggested_severity.toUpperCase()} (score ${analysis.score}). Incident ${incident.id} opened.`;
+            await refreshDashboard();
+        } catch (error) {
+            console.error('Synthetic incident analysis failed', error);
+            notice.textContent = `Simulation failed: ${error.message}`;
+        }
     }
 
     document.addEventListener('click', async (event) => {
@@ -251,7 +329,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const simulateBtn = document.getElementById('simulate-btn');
     if (simulateBtn) {
         simulateBtn.addEventListener('click', () => {
-            simulateIncident().catch((error) => {
+            simulateIncident(false).catch((error) => {
                 console.error('Simulation failed', error);
                 const notice = document.getElementById('ai-rationale');
                 notice.textContent = `Simulation failed: ${error.message}`;
@@ -259,7 +337,10 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    refreshDashboard().catch((error) => console.error('Failed to load dashboard', error));
+    refreshDashboard()
+        .then(() => simulateIncident(true))
+        .then(() => queueAutoInjection())
+        .catch((error) => console.error('Failed to load dashboard', error));
     setInterval(() => {
         refreshDashboard().catch((error) => console.error('Refresh failed', error));
         refreshSensors().catch((error) => console.error('Sensor refresh failed', error));

@@ -2,13 +2,11 @@
 from __future__ import annotations
 
 import os
-from dotenv import load_dotenv
 
 from werkzeug.security import check_password_hash, generate_password_hash
-load_dotenv()
 
-_DEFAULT_USERNAME = os.getenv("APP_USERNAME")
-_DEFAULT_PASSWORD_HASH = generate_password_hash(os.getenv("APP_PASSWORD"))
+_DEFAULT_USERNAME = os.getenv("APP_USERNAME") or "incident-operator"
+_DEFAULT_PASSWORD_HASH = generate_password_hash(os.getenv("APP_PASSWORD") or "secure-demo")
 
 
 def verify_credentials(username: str, password: str) -> bool:
