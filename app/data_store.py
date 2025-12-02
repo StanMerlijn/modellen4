@@ -24,6 +24,23 @@ _incident_id_sequence = itertools.count(1001)
 def _now() -> datetime:
     return datetime.now(UTC)
 
+
+def _normalize_measurement(measurement: dict[str, Any]) -> dict[str, Any]:
+    snapshot = deepcopy(measurement)
+    payload = snapshot.get("payload")
+    snapshot["payload"] = deepcopy(payload) if isinstance(payload, dict) else {}
+
+    captured_at = snapshot.get("captured_at")
+    if isinstance(captured_at, str):
+        try:
+            snapshot["captured_at"] = datetime.fromisoformat(captured_at)
+        except ValueError:
+            snapshot["captured_at"] = _now()
+    elif captured_at is None or not isinstance(captured_at, datetime):
+        snapshot["captured_at"] = _now()
+
+    return snapshot
+
 _incidents: list[dict[str, Any]] = [
     {
         "id": 1000,
@@ -38,6 +55,15 @@ _incidents: list[dict[str, Any]] = [
         "description": "Multiple sensors detect congestion exceeding 85% capacity.",
         "impact": "Delays to public transport lines 2, 3, and 5.",
         "root_cause": None,
+        "sensor_measurement": _normalize_measurement(
+            {
+                "sensor_id": "traffic-001",
+                "type": "Traffic",
+                "status": "alert",
+                "captured_at": _now() - timedelta(minutes=46),
+                "payload": {"vehicle_count": 982, "avg_speed_kmh": 8},
+            }
+        ),
     },
     {
         "id": 999,
@@ -52,6 +78,15 @@ _incidents: list[dict[str, Any]] = [
         "description": "Spike of failed logins against admin APIs.",
         "impact": "Potential service disruption for citizen portal.",
         "root_cause": "Credential stuffing campaign",
+        "sensor_measurement": _normalize_measurement(
+            {
+                "sensor_id": "sec-501",
+                "type": "Cybersecurity",
+                "status": "alert",
+                "captured_at": _now() - timedelta(hours=2, minutes=20),
+                "payload": {"failed_attempts": 182, "unique_ips": 9},
+            }
+        ),
     },
     {
         "id": 998,
@@ -66,6 +101,15 @@ _incidents: list[dict[str, Any]] = [
         "description": "No data received for over 10 minutes.",
         "impact": "Air quality predictions may be delayed.",
         "root_cause": "Battery replacement required",
+        "sensor_measurement": _normalize_measurement(
+            {
+                "sensor_id": "env-778",
+                "type": "Environmental",
+                "status": "warning",
+                "captured_at": _now() - timedelta(hours=6, minutes=5),
+                "payload": {"pm2_5": 12.4, "device_status": "offline"},
+            }
+        ),
     },
 ]
 
@@ -112,6 +156,9 @@ def get_incident(incident_id: int) -> dict[str, Any] | None:
 
 def add_incident(data: dict[str, Any]) -> dict[str, Any]:
     """Register a new incident from sensor analysis."""
+    measurement_data = data.get("sensor_measurement")
+    measurement = _normalize_measurement(measurement_data) if isinstance(measurement_data, dict) else None
+
     incident = {
         "id": next(_incident_id_sequence),
         "title": data.get("title", "Unclassified incident"),
@@ -125,6 +172,7 @@ def add_incident(data: dict[str, Any]) -> dict[str, Any]:
         "description": data.get("description", "Generated from live sensor input."),
         "impact": data.get("impact", "Impact under investigation."),
         "root_cause": None,
+        "sensor_measurement": measurement,
     }
     _incidents.append(incident)
     return deepcopy(incident)
@@ -186,7 +234,19 @@ def serialize_incident(incident: dict[str, Any]) -> dict[str, Any]:
     record["detected_at"] = serialize_datetime(record["detected_at"])
     record["acknowledged_at"] = serialize_datetime(record["acknowledged_at"])
     record["resolved_at"] = serialize_datetime(record["resolved_at"])
+    record["sensor_measurement"] = serialize_measurement(record.get("sensor_measurement"))
     return record
+
+
+def serialize_measurement(measurement: dict[str, Any] | None) -> dict[str, Any] | None:
+    """Serialize measurement snapshots for downstream JSON consumers."""
+    if not measurement:
+        return None
+
+    snapshot = deepcopy(measurement)
+    captured_at = snapshot.get("captured_at")
+    snapshot["captured_at"] = serialize_datetime(captured_at if isinstance(captured_at, datetime) else None)
+    return snapshot
 
 
 __all__ = [
@@ -200,4 +260,5 @@ __all__ = [
     "get_sensors",
     "mutate_sensor_payloads",
     "serialize_incident",
+    "serialize_measurement",
 ]

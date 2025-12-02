@@ -18,7 +18,7 @@ def create_app(config: dict | None = None) -> Flask:
         github_client_secret = github_client_secret.strip()
 
     github_redirect_uri = os.getenv(
-        "GITHUB_REDIRECT_URI", "http://127.0.0.1:5000/oauth/github/callback"
+        "GITHUB_REDIRECT_URI", "http://127.0.0.1:5001/oauth/github/callback"
     )
     if github_redirect_uri:
         github_redirect_uri = github_redirect_uri.strip()

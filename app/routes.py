@@ -193,7 +193,9 @@ def incident_analysis():
     if not isinstance(sensor_payload, dict):
         abort(400, "Missing sensor payload for analysis")
 
+    # Do AI model shit here
     analysis = classify_sensor_event(sensor_payload)
+    print(analysis)
     recommendation = build_incident_recommendation(sensor_payload)
     recommendation.setdefault("location", sensor_payload.get("location", "Unknown"))
     incident = add_incident(recommendation)

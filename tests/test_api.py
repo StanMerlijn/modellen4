@@ -87,6 +87,10 @@ def test_analyze_incident_creates_record(client):
     data = response.get_json()
     assert data["analysis"]["suggested_severity"] in {"high", "critical"}
     assert data["incident"]["category"] == "Traffic"
+    measurement = data["incident"]["sensor_measurement"]
+    assert measurement["sensor_id"] == "synthetic-traffic"
+    assert measurement["payload"]["vehicle_count"] == 1200
+    assert measurement["captured_at"] is not None
 
     refreshed = client.get("/api/incidents")
     assert len(refreshed.get_json()["incidents"]) == start_count + 1
