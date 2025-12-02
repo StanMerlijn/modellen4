@@ -27,6 +27,10 @@ This repository contains a Flask-based demo for the HU hackathon assignment “S
 - `GET /api/sensors` — pull latest sensor telemetry with AI scoring.
 - `POST /api/simulate` — mutate telemetry and optionally create a new incident when thresholds are exceeded.
 
+### Synthetic dataset
+- Reproducible incidents matching `app.data_store` live at `AI_model/data/synthetic_incidents.json`.
+- Regenerate the dataset with `python AI_model/generate_synthetic_incidents.py` (uses a fixed seed for repeatable results).
+
 ### Testing
 Run the automated tests with:
 ```bash
