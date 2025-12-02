@@ -236,14 +236,11 @@ def dashboard_payload():
     incidents = get_incidents()
     metrics = analytics.calculate_metrics(incidents)
     sensors = get_sensors()
-    sensors_with_predictions = []
-    for sensor in sensors:
-        sensors_with_predictions.append({**sensor, "prediction": classify_sensor_event(sensor)})
     return jsonify(
         {
             "incidents": [serialize_incident(item) for item in incidents],
             "metrics": metrics,
-            "sensors": _serialize_sensors(sensors_with_predictions),
+            "sensors": _serialize_sensors(sensors),
         }
     )
 

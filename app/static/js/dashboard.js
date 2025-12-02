@@ -165,23 +165,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function renderSensors(sensors) {
         const list = document.getElementById('sensor-list');
-        const rationalePane = document.getElementById('ai-rationale');
         list.innerHTML = '';
         sensors.forEach((sensor) => {
             const item = document.createElement('button');
             item.type = 'button';
             item.className = `list-group-item list-group-item-action d-flex justify-content-between align-items-center status-${sensor.status}`;
             item.textContent = `${sensor.id} (${sensor.type})`;
-            const badge = document.createElement('span');
-            badge.className = 'badge bg-secondary rounded-pill';
-            const prediction = sensor.prediction || {};
-            badge.textContent = `Risk ${prediction.score ?? '0.0'}`;
-            item.appendChild(badge);
+           
             item.addEventListener('click', () => {
                 list.querySelectorAll('.list-group-item').forEach((node) => node.classList.remove('active'));
                 item.classList.add('active');
-                const rationale = prediction.rationale?.length ? prediction.rationale.join('; ') : 'No AI rationale available.';
-                rationalePane.textContent = `${sensor.id}: ${rationale}`;
             });
             list.appendChild(item);
         });
